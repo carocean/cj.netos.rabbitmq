@@ -1,0 +1,3 @@
+include "cj.netos.rabbitmq.consumer"
+include "cj.netos.rabbitmq.producer"
+include "cj.netos.rabbitmq.ultimate"
