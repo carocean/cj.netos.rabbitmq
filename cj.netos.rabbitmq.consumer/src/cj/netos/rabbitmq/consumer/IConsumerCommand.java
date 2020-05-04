@@ -1,6 +1,7 @@
 package cj.netos.rabbitmq.consumer;
 
 import cj.netos.rabbitmq.RabbitMQException;
+import cj.netos.rabbitmq.RetryCommandException;
 import cj.studio.ecm.net.CircuitException;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
@@ -13,7 +14,8 @@ public interface IConsumerCommand {
      * @param envelope
      * @param properties
      * @param body
-     * @throws RabbitMQException
+     * @throws RabbitMQException 通用异常，该异常会拒绝命令，并从rabbitmq队列中移除
+     * @throws RetryCommandException 该异常会拒绝命令，并将命令重新放入rabbitmq队列
      */
-    void command(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws RabbitMQException;
+    void command(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws RabbitMQException, RetryCommandException;
 }
