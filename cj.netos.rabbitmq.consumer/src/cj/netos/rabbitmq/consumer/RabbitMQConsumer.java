@@ -56,7 +56,7 @@ public class RabbitMQConsumer implements IRabbitMQConsumer {
         if (!homeDir.exists()) {
             homeDir.mkdirs();
         }
-        confFile = new File(String.format("%swallet.json", assembliesHome));
+        confFile = new File(String.format("%sconfig.json", assembliesHome));
         if (!confFile.exists()) {
             throw new CircuitException("404", "配置文件不存在：" + confFile);
         }
