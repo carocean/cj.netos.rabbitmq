@@ -8,6 +8,6 @@ import com.rabbitmq.client.Envelope;
 import java.io.IOException;
 
 public interface IConsumer {
-    void handleDelivery(Channel channel, String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)throws IOException;
+    void handleDelivery(Channel channel, String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws RabbitMQException;
 
 }

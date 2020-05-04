@@ -4,6 +4,8 @@ package cj.netos.rabbitmq;
 import cj.studio.ecm.net.CircuitException;
 import com.rabbitmq.client.Channel;
 
+import java.io.IOException;
+
 public interface IRabbitMQConsumer {
     boolean isOpened();
 
@@ -11,13 +13,13 @@ public interface IRabbitMQConsumer {
     RabbitMQConsumerConfig config();
 
 
-    Channel innerOpen() throws CircuitException;
+    Channel innerOpen() throws RabbitMQException;
 
-    Channel open(String appHome) throws CircuitException;
-
-
-    void close() throws CircuitException;
+    Channel open(String appHome) throws RabbitMQException;
 
 
-    void acceptConsumer(IConsumer consumer) throws CircuitException;
+    void close() throws RabbitMQException;
+
+
+    void acceptConsumer(IConsumer consumer) throws  RabbitMQException;
 }

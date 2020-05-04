@@ -3,9 +3,9 @@ package cj.netos.rabbitmq.consumer;
 import cj.netos.rabbitmq.IConsumer;
 import cj.netos.rabbitmq.IRabbitMQConsumer;
 import cj.netos.rabbitmq.RabbitMQConsumerConfig;
+import cj.netos.rabbitmq.RabbitMQException;
 import cj.studio.ecm.CJSystem;
 import cj.studio.ecm.annotation.CjService;
-import cj.studio.ecm.net.CircuitException;
 import cj.ultimate.gson2.com.google.gson.Gson;
 import com.rabbitmq.client.*;
 
@@ -19,7 +19,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 @CjService(name = "rabbitMQConsumer")
 public class RabbitMQConsumer implements IRabbitMQConsumer {
-    private boolean isOpened;
     RabbitMQConsumerConfig config;
     Channel channel;
     Connection connection;
@@ -31,7 +30,7 @@ public class RabbitMQConsumer implements IRabbitMQConsumer {
 
     @Override
     public boolean isOpened() {
-        return isOpened;
+        return (channel != null && channel.isOpen());
     }
 
 
@@ -41,12 +40,12 @@ public class RabbitMQConsumer implements IRabbitMQConsumer {
     }
 
     @Override
-    public Channel innerOpen() throws CircuitException {
+    public Channel innerOpen() throws RabbitMQException {
         return open(assembliesHome);
     }
 
     @Override
-    public Channel open(String assembliesHome) throws CircuitException {
+    public Channel open(String assembliesHome) throws RabbitMQException {
         this.assembliesHome = assembliesHome;
         lock = new ReentrantLock();
         pauseController = lock.newCondition();
@@ -58,14 +57,14 @@ public class RabbitMQConsumer implements IRabbitMQConsumer {
         }
         confFile = new File(String.format("%sconfig.json", assembliesHome));
         if (!confFile.exists()) {
-            throw new CircuitException("404", "配置文件不存在：" + confFile);
+            throw new RabbitMQException("404", "配置文件不存在：" + confFile);
         }
         Reader reader = null;
         try {
             reader = new FileReader(confFile);
             config = new Gson().fromJson(reader, RabbitMQConsumerConfig.class);
         } catch (IOException e) {
-            throw new CircuitException("500", e);
+            throw new RabbitMQException("500", e);
         } finally {
             if (reader != null) {
                 try {
@@ -100,17 +99,16 @@ public class RabbitMQConsumer implements IRabbitMQConsumer {
             }
             CJSystem.logging().info(getClass(), "连接mq成功，配置如下:");
             config.printLog();
-            isOpened = true;
             return channel;
         } catch (TimeoutException e) {
-            throw new CircuitException("500", e);
+            throw new RabbitMQException("500", e);
         } catch (IOException e) {
-            throw new CircuitException("500", e);
+            throw new RabbitMQException("500", e);
         }
     }
 
     @Override
-    public void close() throws CircuitException {
+    public void close() throws RabbitMQException {
         if (channel != null) {
             try {
                 channel.close();
@@ -128,24 +126,23 @@ public class RabbitMQConsumer implements IRabbitMQConsumer {
             }
         }
         CJSystem.logging().info(getClass(), String.format("已断开mq"));
-        isOpened = false;
     }
 
     @Override
-    public void acceptConsumer(IConsumer consumer) throws CircuitException {
+    public void acceptConsumer(IConsumer consumer) throws RabbitMQException {
         //5 设置channel，使用自定义消费者
         try {
-            channel.basicConsume(config.getQueueName(), false, new CLAFConsumer(channel, consumer));
+            channel.basicConsume(config.getQueueName(), false, new CLAFConsumerDelivery(channel, consumer));
         } catch (IOException e) {
-            throw new CircuitException("500", e);
+            throw new RabbitMQException("500", e);
         }
     }
 }
 
-class CLAFConsumer extends DefaultConsumer {
+class CLAFConsumerDelivery extends DefaultConsumer {
     IConsumer consumer;
 
-    public CLAFConsumer(Channel channel, IConsumer consumer) {
+    public CLAFConsumerDelivery(Channel channel, IConsumer consumer) {
         super(channel);
         this.consumer = consumer;
     }
@@ -157,6 +154,11 @@ class CLAFConsumer extends DefaultConsumer {
 
     @Override
     public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-        consumer.handleDelivery(getChannel(), consumerTag, envelope, properties, body);
+        try {
+            consumer.handleDelivery(getChannel(), consumerTag, envelope, properties, body);
+            //如果发生错误则会导致channel并闭，因此捕获
+        } catch (Throwable throwable) {
+            CJSystem.logging().error(getClass(), throwable);
+        }
     }
 }
