@@ -99,9 +99,4 @@ task release(type: Copy) {
 			println 'rabbitmq 环境发布完毕!'
 		}
 }
-release.dependsOn ":cj.netos.rabbitmq.consumer:release"
-release.dependsOn ":cj.netos.rabbitmq.producer:release"
-release.dependsOn ":cj.netos.rabbitmq.ultimate:release"
-
-tasks.getByPath(':cj.netos.rabbitmq.consumer:release').mustRunAfter tasks.getByPath(':cj.netos.rabbitmq.ultimate:release')
-tasks.getByPath(':cj.netos.rabbitmq.producer:release').mustRunAfter tasks.getByPath(':cj.netos.rabbitmq.ultimate:release')
+release.dependsOn ":cj.netos.rabbitmq:release"

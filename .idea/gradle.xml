@@ -9,9 +9,7 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/cj.netos.rabbitmq.consumer" />
-            <option value="$PROJECT_DIR$/cj.netos.rabbitmq.producer" />
-            <option value="$PROJECT_DIR$/cj.netos.rabbitmq.ultimate" />
+            <option value="$PROJECT_DIR$/cj.netos.rabbitmq" />
           </set>
         </option>
         <option name="useQualifiedModuleNames" value="true" />

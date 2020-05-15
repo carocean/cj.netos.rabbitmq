@@ -1,0 +1,4 @@
+cj.netos.rabbitmq
+cj.netos.rabbitmq.consumer
+cj.netos.rabbitmq.producer
+cj.netos.rabbitmq.util
