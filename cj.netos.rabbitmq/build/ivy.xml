@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ivy-module version="2.0" xmlns:m="http://ant.apache.org/ivy/maven">
-  <info organisation="cj.netos.rabbitmq" module="cj.netos.rabbitmq" revision="1.0.1" status="integration" publication="20200515221818"/>
+  <info organisation="cj.netos.rabbitmq" module="cj.netos.rabbitmq" revision="1.0.1" status="integration" publication="20200515235022"/>
   <configurations>
     <conf name="annotationProcessor" visibility="private"/>
     <conf name="apiElements" visibility="private" extends="runtime"/>

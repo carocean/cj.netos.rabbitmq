@@ -1,5 +1,6 @@
 package cj.netos.rabbitmq.consumer;
 
+import cj.netos.rabbitmq.CjConsumer;
 import cj.netos.rabbitmq.IConsumer;
 import cj.netos.rabbitmq.RabbitMQException;
 import cj.netos.rabbitmq.RetryCommandException;
@@ -26,20 +27,29 @@ import java.util.Map;
 public class DeliveryCommandConsumer implements IConsumer {
     Map<String, IConsumerCommand> commandMap;
 
-    public DeliveryCommandConsumer(IServiceProvider site) {
+    public DeliveryCommandConsumer(IServiceProvider site, String consumer) {
         commandMap = new HashMap<>();
         ServiceCollection<IConsumerCommand> commands = site.getServices(IConsumerCommand.class);
         for (IConsumerCommand cmd : commands) {
-            CjService cjService = cmd.getClass().getAnnotation(CjService.class);
+            Class<?> clazz = cmd.getClass();
+            CjService cjService = clazz.getAnnotation(CjService.class);
             if (cjService == null) {
+                continue;
+            }
+            CjConsumer cjConsumer = clazz.getAnnotation(CjConsumer.class);
+            if (cjConsumer == null) {
+                CJSystem.logging().warn(getClass(), String.format("消费者：%s的消费指令定义错误，已忽略。原因是缺少CjConsumer注解。消费指令地址:%s", consumer, cjService.name()));
                 continue;
             }
             if (!cjService.name().startsWith("/") && cjService.name().lastIndexOf("#") < 0) {
                 CJSystem.logging().warn(getClass(), String.format("消费指令定义错误，已忽略。路径必须以/开头且必须含有#号，错误格式为：%s", cjService.name()));
                 continue;
             }
+            if (!cjConsumer.name().equals(consumer)) {
+                continue;
+            }
             commandMap.put(cjService.name(), cmd);
-            CJSystem.logging().info(getClass(), String.format("发现消费指令：%s", cjService.name()));
+            CJSystem.logging().info(getClass(), String.format("发现消费者:%s的消费指令地址：%s", consumer, cjService.name()));
         }
     }
 
@@ -66,7 +76,7 @@ public class DeliveryCommandConsumer implements IConsumer {
             consumerCommand.command(consumerTag, envelope, properties, body);
             channel.basicAck(envelope.getDeliveryTag(), false);
         } catch (RabbitMQException e) {
-            CJSystem.logging().error(getClass(),e);
+            CJSystem.logging().error(getClass(), e);
             try {
                 //requeue表示是否重新将拒绝的消息放回队列，如果放回而无别的消费者接收，则导致死循环
                 channel.basicReject(envelope.getDeliveryTag(), false);
@@ -74,7 +84,7 @@ public class DeliveryCommandConsumer implements IConsumer {
                 CJSystem.logging().error(getClass(), String.format("执行拒绝时出错：%s", e1));
             }
         } catch (RetryCommandException e) {
-            CJSystem.logging().error(getClass(),e);
+            CJSystem.logging().error(getClass(), e);
             try {
                 //requeue表示是否重新将拒绝的消息放回队列，如果放回而无别的消费者接收，则导致死循环
                 channel.basicReject(envelope.getDeliveryTag(), true);
@@ -82,7 +92,7 @@ public class DeliveryCommandConsumer implements IConsumer {
                 CJSystem.logging().error(getClass(), String.format("执行拒绝时出错：%s", e1));
             }
         } catch (IOException e) {//io异常可返回重试
-            CJSystem.logging().error(getClass(),e);
+            CJSystem.logging().error(getClass(), e);
             try {
                 //requeue表示是否重新将拒绝的消息放回队列，如果放回而无别的消费者接收，则导致死循环
                 channel.basicReject(envelope.getDeliveryTag(), true);
