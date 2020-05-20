@@ -8,7 +8,6 @@
   
 ## 生产者配置
 ```yaml
-#必须先启动生产者以生成exchange,消费者只使用exchange
 host: 47.104.128.137
 port: 5675
 virtualHost: /claf/wybank
@@ -59,7 +58,6 @@ routing:
 
 #消费者配置
 ```yaml
-#必须先启动生产者以生成exchange,消费者只使用exchange
 host: 47.104.128.137
 port: 5675
 virtualHost: /claf/wybank
