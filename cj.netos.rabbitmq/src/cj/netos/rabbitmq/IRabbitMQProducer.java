@@ -17,16 +17,13 @@ public interface IRabbitMQProducer {
 
     Channel open(File confFile) throws CircuitException;
 
-    void flushConfig() throws CircuitException;
+    void refreshConfig() throws CircuitException;
 
     void close() throws CircuitException;
 
-    void addRoutingKey(String routingKey) throws CircuitException;
-
-    void removeRoutingKey(String routingKey) throws CircuitException;
 
     void publish(AMQP.BasicProperties props, byte[] body) throws CircuitException;
 
-    void innerOpen() throws CircuitException;
+    void reopen() throws CircuitException;
 
 }

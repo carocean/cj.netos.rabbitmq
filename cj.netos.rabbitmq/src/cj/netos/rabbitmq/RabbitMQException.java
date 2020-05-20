@@ -1,10 +1,9 @@
 package cj.netos.rabbitmq;
 
 
-import java.io.IOException;
 import java.util.Stack;
 
-public class RabbitMQException extends IOException {
+public class RabbitMQException extends Exception {
     protected String status;
 
     public RabbitMQException(String status) {

@@ -1,13 +1,13 @@
 package cj.netos.rabbitmq.producer;
 
-import cj.netos.rabbitmq.IRabbitMQProducer;
-import cj.netos.rabbitmq.RabbitMQProducerConfig;
+import cj.netos.rabbitmq.*;
 import cj.netos.rabbitmq.util.Encript;
 import cj.studio.ecm.CJSystem;
 import cj.studio.ecm.annotation.CjService;
 import cj.studio.ecm.net.CircuitException;
 import cj.ultimate.gson2.com.google.gson.Gson;
 import com.rabbitmq.client.*;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
 import java.util.List;
@@ -20,7 +20,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 @CjService(name = "rabbitMQProducer")
 public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
-    private boolean isOpened;
     RabbitMQProducerConfig config;
     Channel channel;
     Connection connection;
@@ -31,7 +30,7 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
 
     @Override
     public boolean isOpened() {
-        return isOpened;
+        return channel.isOpen() && connection.isOpen();
     }
 
     @Override
@@ -44,49 +43,10 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
         return config;
     }
 
-    @Override
-    public void addRoutingKey(String routingKey) throws CircuitException {
-        if (config.getRoutingKeys().contains(routingKey)) {
-            return;
-        }
-        pause.set(true);
-        config.getRoutingKeys().add(routingKey);
-        flushConfig();
-        try {
-            lock.lock();
-            pauseController.signalAll();
-        } catch (Exception e) {
-            throw new CircuitException("500", e);
-        } finally {
-            pause.set(false);
-            lock.unlock();
-        }
 
-    }
-
-    @Override
-    public void removeRoutingKey(String routingKey) throws CircuitException {
-        if (!config.getRoutingKeys().contains(routingKey)) {
-            return;
-        }
-        pause.set(true);
-        if (config.getRoutingKeys().remove(routingKey)) {
-            flushConfig();
-        }
-        try {
-            lock.lock();
-            pauseController.signalAll();
-        } catch (Exception e) {
-            throw new CircuitException("500", e);
-        } finally {
-            pause.set(false);
-            lock.unlock();
-        }
-
-    }
-
-    protected String selectRouteKey(String factor) throws CircuitException {
-        List<String> keys = config.getRoutingKeys();
+    protected synchronized String selectRouteKey(String factor) throws CircuitException {
+        RoutingConfig routingConfig = config.getRouting();
+        List<String> keys = routingConfig.getRoutingKeys();
         if (keys.isEmpty()) {
             return null;
         }
@@ -97,22 +57,78 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
     }
 
     @Override
-    public void innerOpen() throws CircuitException {
-        if (!isOpened) {
-            open(confFile);
+    public void reopen() throws CircuitException {
+        if (channel.isOpen()) {
+            close();
         }
+        open(confFile);
     }
 
     @Override
     public Channel open(File confFile) throws CircuitException {
-        this.confFile=confFile;
+        this.confFile = confFile;
         lock = new ReentrantLock();
         pauseController = lock.newCondition();
 
+        _loadConfig();
+
+        String host = config.getHost();
+        int port = config.getPort();
+        String virtualHost = config.getVirtualHost();
+        String user = config.getUser();
+        String pwd = config.getPwd();
+        ExchangeConfig exchange = config.getExchange();
+        ConnectionFactory connectionFactory = new ConnectionFactory();
+        try {
+            connectionFactory.setHost(host);
+            connectionFactory.setPort(port);
+            connectionFactory.setVirtualHost(virtualHost);
+            connectionFactory.setUsername(user);
+            connectionFactory.setPassword(pwd);
+            connectionFactory.setAutomaticRecoveryEnabled(config.isAutomaticRecoveryEnabled());
+            if (config.getRequestedHeartbeat() > 0) {
+                connectionFactory.setRequestedHeartbeat(config.getRequestedHeartbeat());
+            }
+            if (config.getConnectionTimeout() > 0) {
+                connectionFactory.setConnectionTimeout(config.getConnectionTimeout());
+            }
+            if (config.getWorkPoolTimeout() > 0) {
+                connectionFactory.setWorkPoolTimeout(config.getWorkPoolTimeout());
+            }
+
+            connection = connectionFactory.newConnection();
+            channel = connection.createChannel();
+            channel.exchangeDeclare(exchange.getName(), exchange.getType(), exchange.isDurable(), exchange.isAutoDelete(), exchange.isInternal(), exchange.getArguments());
+            CJSystem.logging().info(getClass(), "连接mq成功，配置如下:");
+            config.printLog();
+            return channel;
+        } catch (TimeoutException e) {
+            throw new CircuitException("500", e);
+        } catch (IOException e) {
+            throw new CircuitException("500", e);
+        }
+    }
+
+    @Override
+    public void refreshConfig() throws CircuitException {
+        pause.set(true);
+        try {
+            lock.lock();
+            _loadConfig();
+            pauseController.signalAll();
+        } catch (Exception e) {
+            throw new CircuitException("500", e);
+        } finally {
+            pause.set(false);
+            lock.unlock();
+        }
+    }
+
+    private void _loadConfig() throws CircuitException {
         Reader reader = null;
         try {
             reader = new FileReader(confFile);
-            config = new Gson().fromJson(reader, RabbitMQProducerConfig.class);
+            config = RabbitMQProducerConfig.load(reader);
         } catch (IOException e) {
             throw new CircuitException("500", e);
         } finally {
@@ -123,51 +139,6 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
                 }
             }
         }
-        String host = config.getHost();
-        int port = config.getPort();
-        String virtualHost = config.getVirtualHost();
-        String user = config.getUser();
-        String pwd = config.getPwd();
-        String exchange = config.getExchange();
-        ConnectionFactory connectionFactory = new ConnectionFactory();
-        try {
-            connectionFactory.setHost(host);
-            connectionFactory.setPort(port);
-            connectionFactory.setVirtualHost(virtualHost);
-            connectionFactory.setUsername(user);
-            connectionFactory.setPassword(pwd);
-            connection = connectionFactory.newConnection();
-            channel = connection.createChannel();
-            channel.exchangeDeclare(exchange, "direct", true);
-            CJSystem.logging().info(getClass(), "连接mq成功，配置如下:");
-            config.printLog();
-            isOpened = true;
-            return channel;
-        } catch (TimeoutException e) {
-            throw new CircuitException("500", e);
-        } catch (IOException e) {
-            throw new CircuitException("500", e);
-        }
-    }
-
-    @Override
-    public void flushConfig() throws CircuitException {
-        String json = new Gson().toJson(config);
-        FileWriter writer = null;
-        try {
-            writer = new FileWriter(confFile);
-            writer.write(json);
-        } catch (IOException e) {
-            throw new CircuitException("500", e);
-        } finally {
-            if (writer != null) {
-                try {
-                    writer.close();
-                } catch (IOException e) {
-                }
-            }
-        }
-
     }
 
     @Override
@@ -189,14 +160,13 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
             }
         }
         CJSystem.logging().info(getClass(), String.format("已断开mq"));
-        isOpened = false;
     }
 
 
     @Override
     public void publish(AMQP.BasicProperties props, byte[] body) throws CircuitException {
         if (pause.get()) {
-            CJSystem.logging().info(getClass(), "暂停发送消息，正在更新routingKeys列表...");
+            CJSystem.logging().info(getClass(), "暂停发送消息，正在重新加载Config...");
             try {
                 lock.lock();
                 pauseController.await(15000L, TimeUnit.MILLISECONDS);
@@ -214,14 +184,33 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
         2. immediate标志位
         当immediate标志位设置为true时，如果exchange在将消息route到queue(s)时发现对应的queue上没有消费者，那么这条消息不会放入队列中。当与消息routeKey关联的所有queue(一个或多个)都没有消费者时，该消息会通过basic.return方法返还给生产者。
        */
-
-        String routingKey = selectRouteKey(body.hashCode() + UUID.randomUUID().toString());
-        try {
-            channel.basicPublish(config.getExchange(), routingKey, true, false, props, body);
-            channel.addReturnListener(this);
-        } catch (IOException e) {
-            throw new CircuitException("500", e);
+        RoutingConfig routingConfig = config.getRouting();
+        if (routingConfig.getDirectCast() == null) {
+            routingConfig.setDirectCast(DirectCast.unicast);
         }
+        switch (routingConfig.getDirectCast()) {
+            case multicast:
+                List<String> keys = routingConfig.getRoutingKeys();
+                for (String routingKey : keys) {
+                    try {
+                        channel.basicPublish(config.getExchange().getName(), routingKey, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
+                        channel.addReturnListener(this);
+                    } catch (IOException e) {
+                        throw new CircuitException("500", e);
+                    }
+                }
+                break;
+            case unicast:
+                String routingKey = selectRouteKey(body.hashCode() + UUID.randomUUID().toString());
+                try {
+                    channel.basicPublish(config.getExchange().getName(), routingKey, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
+                    channel.addReturnListener(this);
+                } catch (IOException e) {
+                    throw new CircuitException("500", e);
+                }
+                break;
+        }
+
     }
 
     @Override

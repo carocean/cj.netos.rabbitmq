@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ivy-module version="2.0" xmlns:m="http://ant.apache.org/ivy/maven">
-  <info organisation="cj.netos.rabbitmq" module="cj.netos.rabbitmq" revision="1.0.1" status="integration" publication="20200515235022"/>
+  <info organisation="cj.netos.rabbitmq" module="cj.netos.rabbitmq" revision="1.0.2" status="integration" publication="20200521012911"/>
   <configurations>
     <conf name="annotationProcessor" visibility="private"/>
     <conf name="apiElements" visibility="private" extends="runtime"/>
@@ -35,6 +35,7 @@
     <dependency org="cj.studio.gateway2" name="cj.studio.gateway.socket" rev="2.4.2" conf="compile-&gt;default"/>
     <dependency org="com.squareup.okhttp3" name="okhttp" rev="4.3.1" conf="compile-&gt;default"/>
     <dependency org="com.rabbitmq" name="amqp-client" rev="5.9.0" conf="compile-&gt;default"/>
+    <dependency org="org.yaml" name="snakeyaml" rev="1.25" conf="compile-&gt;default"/>
     <dependency org="junit" name="junit" rev="4.8.2" conf="testCompile-&gt;default"/>
   </dependencies>
 </ivy-module>

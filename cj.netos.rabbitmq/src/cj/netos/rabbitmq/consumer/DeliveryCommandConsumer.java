@@ -9,10 +9,7 @@ import cj.studio.ecm.IServiceProvider;
 import cj.studio.ecm.ServiceCollection;
 import cj.studio.ecm.annotation.CjService;
 import cj.studio.ecm.net.CircuitException;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Envelope;
-import com.rabbitmq.client.LongString;
+import com.rabbitmq.client.*;
 import com.rabbitmq.client.impl.LongStringHelper;
 
 import java.io.IOException;
@@ -51,6 +48,11 @@ public class DeliveryCommandConsumer implements IConsumer {
             commandMap.put(cjService.name(), cmd);
             CJSystem.logging().info(getClass(), String.format("发现消费者:%s的消费指令地址：%s", consumer, cjService.name()));
         }
+    }
+
+    @Override
+    public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
+        CJSystem.logging().error(getClass(), sig);
     }
 
     @Override

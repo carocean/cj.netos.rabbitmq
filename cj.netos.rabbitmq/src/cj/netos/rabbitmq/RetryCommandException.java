@@ -1,10 +1,9 @@
 package cj.netos.rabbitmq;
 
 
-import java.io.IOException;
 import java.util.Stack;
 
-public class RetryCommandException extends IOException {
+public class RetryCommandException extends Exception {
     protected String status;
 
     public RetryCommandException(String status) {

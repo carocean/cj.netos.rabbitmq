@@ -11,9 +11,7 @@ import cj.studio.ecm.net.CircuitException;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class DefaultRabbitMQMonitor implements IServiceContainerMonitor {
@@ -61,7 +59,7 @@ public class DefaultRabbitMQMonitor implements IServiceContainerMonitor {
         File[] files = home.listFiles(new FileFilter() {
             @Override
             public boolean accept(File f) {
-                return f.getName().endsWith(".json");
+                return f.getName().endsWith(".yaml");
             }
         });
         for (File file : files) {
@@ -81,7 +79,7 @@ public class DefaultRabbitMQMonitor implements IServiceContainerMonitor {
         File[] files = home.listFiles(new FileFilter() {
             @Override
             public boolean accept(File f) {
-                return f.getName().endsWith(".json");
+                return f.getName().endsWith(".yaml");
             }
         });
         for (File file : files) {
