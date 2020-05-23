@@ -1,6 +1,6 @@
 package cj.netos.rabbitmq;
 
-public enum DirectCast {
+public enum Castmode {
     unicast,
     multicast
 }

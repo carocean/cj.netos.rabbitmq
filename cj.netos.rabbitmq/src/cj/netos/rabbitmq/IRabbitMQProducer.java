@@ -21,8 +21,7 @@ public interface IRabbitMQProducer {
 
     void close() throws CircuitException;
 
-
-    void publish(AMQP.BasicProperties props, byte[] body) throws CircuitException;
+    void publish(String sendToRoutingNode, AMQP.BasicProperties props, byte[] body) throws CircuitException;
 
     void reopen() throws CircuitException;
 

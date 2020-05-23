@@ -8,35 +8,36 @@ import java.util.List;
 import java.util.Map;
 
 public class RoutingConfig {
-    DirectCast directCast;
+
     boolean mandatory;
     boolean immediate;
-    List<String> routingKeys;
+
+    Map<String,RoutingNode> routingNodes;
 
     public void parse(Map<String, Object> map) {
         if (map == null) {
             map = new HashMap<>();
         }
-        directCast = map.get("directCast") == null ? DirectCast.unicast : DirectCast.valueOf((String) map.get("directCast"));
+
         mandatory = map.get("mandatory") == null ? true : (boolean) map.get("mandatory");
         immediate = map.get("immediate") == null ? false : (boolean) map.get("immediate");
-        routingKeys = map.get("routingKeys") == null ? new ArrayList<>() : (List<String>) map.get("routingKeys");
+
+        Map<String, Map<String, Object>> routingNodesConf = (Map<String, Map<String, Object>>) map.get("routingNodes");
+        for (Map.Entry<String, Map<String, Object>> entry : routingNodesConf.entrySet()) {
+            RoutingNode node = RoutingNode.parse(entry.getValue());
+            routingNodes.put(entry.getKey(), node);
+        }
+
     }
     public void printLog(Class aClass, String indent) {
-        CJSystem.logging().info(aClass, String.format("%sdirectCast=%s", indent,directCast));
         CJSystem.logging().info(aClass, String.format("%smandatory=%s",  indent,mandatory));
         CJSystem.logging().info(aClass, String.format("%simmediate=%s",  indent,immediate));
-        CJSystem.logging().info(aClass, String.format("%sroutingKeys:", indent));
-        for (String key : routingKeys) {
-            CJSystem.logging().info(aClass, String.format("%s%sdirectCast=%s", indent, indent, key));
+        CJSystem.logging().info(aClass, String.format("%sroutingNodes:", indent));
+        for (String key : routingNodes.keySet()) {
+            RoutingNode node = routingNodes.get(key);
+            CJSystem.logging().info(aClass, String.format("%s%s%s", indent, indent, key));
+            node.printLog(aClass, indent + indent + indent);
         }
-    }
-    public DirectCast getDirectCast() {
-        return directCast;
-    }
-
-    public void setDirectCast(DirectCast directCast) {
-        this.directCast = directCast;
     }
 
     public boolean isMandatory() {
@@ -55,14 +56,11 @@ public class RoutingConfig {
         this.immediate = immediate;
     }
 
-    public List<String> getRoutingKeys() {
-        return routingKeys;
+    public Map<String, RoutingNode> getRoutingNodes() {
+        return routingNodes;
     }
 
-    public void setRoutingKeys(List<String> routingKeys) {
-        this.routingKeys = routingKeys;
+    public void setRoutingNodes(Map<String, RoutingNode> routingNodes) {
+        this.routingNodes = routingNodes;
     }
-
-
-
 }

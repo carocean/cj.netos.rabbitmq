@@ -5,12 +5,14 @@ import cj.netos.rabbitmq.util.Encript;
 import cj.studio.ecm.CJSystem;
 import cj.studio.ecm.annotation.CjService;
 import cj.studio.ecm.net.CircuitException;
-import cj.ultimate.gson2.com.google.gson.Gson;
 import com.rabbitmq.client.*;
-import org.yaml.snakeyaml.Yaml;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -44,9 +46,8 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
     }
 
 
-    protected synchronized String selectRouteKey(String factor) throws CircuitException {
-        RoutingConfig routingConfig = config.getRouting();
-        List<String> keys = routingConfig.getRoutingKeys();
+    protected synchronized String selectRouteKey(RoutingNode routingNode, String factor) throws CircuitException {
+        List<String> keys = routingNode.getRoutingKeys();
         if (keys.isEmpty()) {
             return null;
         }
@@ -164,7 +165,13 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
 
 
     @Override
-    public void publish(AMQP.BasicProperties props, byte[] body) throws CircuitException {
+    public void publish(String sendToRoutingNode, AMQP.BasicProperties props, byte[] body) throws CircuitException {
+        RoutingConfig routingConfig = config.getRouting();
+        Map<String, RoutingNode> routingNodeMap = routingConfig.getRoutingNodes();
+        RoutingNode routingNode = routingNodeMap.get(sendToRoutingNode);
+        if (routingNode == null) {
+            throw new CircuitException("404", String.format("未知的路由节点:%s", sendToRoutingNode));
+        }
         if (pause.get()) {
             CJSystem.logging().info(getClass(), "暂停发送消息，正在重新加载Config...");
             try {
@@ -184,13 +191,13 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
         2. immediate标志位
         当immediate标志位设置为true时，如果exchange在将消息route到queue(s)时发现对应的queue上没有消费者，那么这条消息不会放入队列中。当与消息routeKey关联的所有queue(一个或多个)都没有消费者时，该消息会通过basic.return方法返还给生产者。
        */
-        RoutingConfig routingConfig = config.getRouting();
-        if (routingConfig.getDirectCast() == null) {
-            routingConfig.setDirectCast(DirectCast.unicast);
+
+        if (routingNode.getCastmode() == null) {
+            routingNode.setCastmode(Castmode.unicast);
         }
-        switch (routingConfig.getDirectCast()) {
+        switch (routingNode.getCastmode()) {
             case multicast:
-                List<String> keys = routingConfig.getRoutingKeys();
+                List<String> keys = routingNode.getRoutingKeys();
                 for (String routingKey : keys) {
                     try {
                         channel.basicPublish(config.getExchange().getName(), routingKey, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
@@ -201,7 +208,7 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
                 }
                 break;
             case unicast:
-                String routingKey = selectRouteKey(body.hashCode() + UUID.randomUUID().toString());
+                String routingKey = selectRouteKey(routingNode, body.hashCode() + UUID.randomUUID().toString());
                 try {
                     channel.basicPublish(config.getExchange().getName(), routingKey, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
                     channel.addReturnListener(this);

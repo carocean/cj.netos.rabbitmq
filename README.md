@@ -39,7 +39,7 @@ routing:
   # 传播模式，该配置项仅在仅在exchange的type=direct有效。
   # unicast 单播。为默认
   # multicast 多播。该功能等效于type=fanout，建议多播使用type=fanout
-  directCast: unicast
+  castmode: unicast
   #为true时，如果exchange根据自身类型和消息routingKey无法找到一个合适的queue存储消息，那么broker会调用basic.return方法将消息返还给生产者;当mandatory设置为false时，出现上述情况broker会直接将消息丢弃;通俗的讲，mandatory标志告诉broker代理服务器至少将消息route到一个队列中，否则就将消息return给发送者;
   #默认为true
   mandatory: true
