@@ -5,6 +5,7 @@ import cj.netos.rabbitmq.util.Encript;
 import cj.studio.ecm.CJSystem;
 import cj.studio.ecm.annotation.CjService;
 import cj.studio.ecm.net.CircuitException;
+import cj.ultimate.util.StringUtil;
 import com.rabbitmq.client.*;
 
 import java.io.File;
@@ -166,12 +167,6 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
 
     @Override
     public void publish(String sendToRoutingNode, AMQP.BasicProperties props, byte[] body) throws CircuitException {
-        RoutingConfig routingConfig = config.getRouting();
-        Map<String, RoutingNode> routingNodeMap = routingConfig.getRoutingNodes();
-        RoutingNode routingNode = routingNodeMap.get(sendToRoutingNode);
-        if (routingNode == null) {
-            throw new CircuitException("404", String.format("未知的路由节点:%s", sendToRoutingNode));
-        }
         if (pause.get()) {
             CJSystem.logging().info(getClass(), "暂停发送消息，正在重新加载Config...");
             try {
@@ -184,6 +179,27 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
                 lock.unlock();
             }
         }
+
+        RoutingConfig routingConfig = config.getRouting();
+        //fanout模式无路由键，因此直接发送
+        if ("fanout".equals(config.getExchange().getType())) {
+            if (!StringUtil.isEmpty(sendToRoutingNode)) {
+                CJSystem.logging().warn(getClass(), String.format("交换器类型是fanout，指定发送目标没有意义。忽略配置目标并发送"));
+                return;
+            }
+            try {
+                channel.basicPublish(config.getExchange().getName(), null, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
+                channel.addReturnListener(this);
+                return;
+            } catch (IOException e) {
+                throw new CircuitException("500", e);
+            }
+        }
+
+        if (StringUtil.isEmpty(sendToRoutingNode)) {
+            CJSystem.logging().warn(getClass(), String.format("发送目录为空，已忽略发送此消息"));
+            return;
+        }
         /*
         1. mandatory标志位
         当mandatory标志位设置为true时，如果exchange根据自身类型和消息routeKey无法找到一个符合条件的queue，那么会调用basic.return方法将消息返还给生产者；当mandatory设为false时，出现上述情形broker会直接将消息扔掉。
@@ -192,6 +208,12 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
         当immediate标志位设置为true时，如果exchange在将消息route到queue(s)时发现对应的queue上没有消费者，那么这条消息不会放入队列中。当与消息routeKey关联的所有queue(一个或多个)都没有消费者时，该消息会通过basic.return方法返还给生产者。
        */
 
+        Map<String, RoutingNode> routingNodeMap = routingConfig.getRoutingNodes();
+        RoutingNode routingNode = routingNodeMap.get(sendToRoutingNode);
+        if (routingNode == null) {
+            CJSystem.logging().warn(getClass(), String.format("未知的路由节点:%s，已忽略发送此消息", sendToRoutingNode));
+            return;
+        }
         if (routingNode.getCastmode() == null) {
             routingNode.setCastmode(Castmode.unicast);
         }

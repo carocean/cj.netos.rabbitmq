@@ -22,6 +22,7 @@ public class RoutingConfig {
         mandatory = map.get("mandatory") == null ? true : (boolean) map.get("mandatory");
         immediate = map.get("immediate") == null ? false : (boolean) map.get("immediate");
 
+        routingNodes = new HashMap<>();
         Map<String, Map<String, Object>> routingNodesConf = (Map<String, Map<String, Object>>) map.get("routingNodes");
         for (Map.Entry<String, Map<String, Object>> entry : routingNodesConf.entrySet()) {
             RoutingNode node = RoutingNode.parse(entry.getValue());
