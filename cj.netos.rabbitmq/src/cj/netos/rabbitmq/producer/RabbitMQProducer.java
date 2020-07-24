@@ -101,6 +101,7 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
             connection = connectionFactory.newConnection();
             channel = connection.createChannel();
             channel.exchangeDeclare(exchange.getName(), exchange.getType(), exchange.isDurable(), exchange.isAutoDelete(), exchange.isInternal(), exchange.getArguments());
+            channel.addReturnListener(this);
             CJSystem.logging().info(getClass(), "连接mq成功，配置如下:");
             config.printLog();
             return channel;
@@ -189,7 +190,6 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
             }
             try {
                 channel.basicPublish(config.getExchange().getName(), null, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
-                channel.addReturnListener(this);
                 return;
             } catch (IOException e) {
                 throw new CircuitException("500", e);
@@ -223,7 +223,6 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
                 for (String routingKey : keys) {
                     try {
                         channel.basicPublish(config.getExchange().getName(), routingKey, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
-                        channel.addReturnListener(this);
                     } catch (IOException e) {
                         throw new CircuitException("500", e);
                     }
@@ -233,7 +232,6 @@ public class RabbitMQProducer implements IRabbitMQProducer, ReturnListener {
                 String routingKey = selectRouteKey(routingNode, body.hashCode() + UUID.randomUUID().toString());
                 try {
                     channel.basicPublish(config.getExchange().getName(), routingKey, routingConfig.isMandatory(), routingConfig.isImmediate(), props, body);
-                    channel.addReturnListener(this);
                 } catch (IOException e) {
                     throw new CircuitException("500", e);
                 }
