@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>cj.netos.rabbitmq</groupId>
   <artifactId>cj.netos.rabbitmq</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.5</version>
   <name>cj.netos.rabbitmq</name>
   <description></description>
   <licenses>
